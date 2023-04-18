@@ -3,6 +3,7 @@ package ef1
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 
 	"rey.com/fairallol/model"
@@ -89,7 +90,26 @@ func fairAllocation(agents []*model.Agent, items []*model.Item) (map[string][]st
 			}
 
 			if bestItemInMaxAgent == nil {
-				fmt.Println("No items of A, B prefers")
+				fmt.Println("No items of", maxAgent.Name, minAgent.Name, " prefers.")
+				fmt.Println("Give ", minAgent.Name, " the item that ", maxAgent.Name, " has the last preference for.")
+
+				var lastPrefered *model.Item
+				lastPreferedValue := math.MaxInt
+				for _, item := range maxAgent.Allocations {
+					v := maxAgent.Valuations[item.Name]
+					if v < lastPreferedValue {
+						lastPreferedValue = v
+						lastPrefered = item
+					}
+				}
+
+				delete(maxAgent.Allocations, lastPrefered.Name)
+				minAgent.Allocations[lastPrefered.Name] = lastPrefered
+				allocations[maxAgent.Name] = remove(allocations[maxAgent.Name], lastPrefered.Name)
+				allocations[minAgent.Name] = append(allocations[minAgent.Name], lastPrefered.Name)
+
+				fmt.Printf("swap %s from %s to %s\n", lastPrefered.Name, maxAgent.Name, minAgent.Name)
+
 			} else {
 				delete(maxAgent.Allocations, bestItemInMaxAgent.Name)
 				minAgent.Allocations[bestItemInMaxAgent.Name] = bestItemInMaxAgent
