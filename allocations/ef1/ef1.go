@@ -1,149 +1,104 @@
 package ef1
 
 import (
-	"errors"
 	"fmt"
-	"math"
-	"sort"
 
 	"rey.com/fairallol/model"
-	"rey.com/fairallol/pkg/e"
 )
 
 // The code above implements a type of fairness called envy-freeness up to one good (EF1) in its allocation process. An allocation is said to be EF1 if no agent would prefer the bundle of any other agent plus one more item to their own bundle.
 
-// The fairAllocation function first allocates each item to the agent with the highest valuation for that item, which ensures that the allocation is Pareto optimal (no agent can be made better off without making another agent worse off). It then adjusts the allocation to maximize fairness by reallocating an item from the agent with the largest allocation to the agent with the smallest allocation, if there exists an item that the agent with the smallest allocation values more than the agent with the largest allocation. This process aims to make the allocation envy-free, in that no agent would prefer the bundle of any other agent to their own bundle.
+// The ef1 function first allocates each item to the agent with the highest valuation for that item, which ensures that the allocation is Pareto optimal (no agent can be made better off without making another agent worse off). It then adjusts the allocation to maximize fairness by reallocating an item from the agent with the largest allocation to the agent with the smallest allocation, if there exists an item that the agent with the smallest allocation values more than the agent with the largest allocation. This process aims to make the allocation envy-free, in that no agent would prefer the bundle of any other agent to their own bundle.
 // Note that the code does not guarantee the existence of an EF1 allocation for all possible inputs, as the problem of finding such an allocation is known to be NP-hard. However, the code provides a heuristic that attempts to find a good allocation in practice.
 // Ensure Pareto optimal but not necessary for min_max
-func fairAllocation(agents []*model.Agent, items []*model.Item) (map[string][]string, error) {
-	// allocate each item to the agent with the highest valuation for that item
+func ef1(agents []*model.Agent, items []*model.Item) map[string][]string {
 	allocations := make(map[string][]string) // allocations[agent_name] is a slice of item name allocated to this agent
+	unallocatedItems := make([]*model.Item, len(items))
+	copy(unallocatedItems, items)
 
-	for _, item := range items {
-		fmt.Printf("start allocate %s\n", item.Name)
-
-		highestValuation := -1
-		var AgentsWithHighestValuation []*model.Agent
-
+	// Loop until no unallocated items left
+	for len(unallocatedItems) > 0 {
+		envyFreeAgent := make(map[string]bool)
 		for _, agent := range agents {
-			if _, ok := agent.Allocations[item.Name]; !ok && agent.Valuations[item.Name] > highestValuation {
-				highestValuation = agent.Valuations[item.Name]
-				AgentsWithHighestValuation = []*model.Agent{agent}
-			} else if _, ok := agent.Allocations[item.Name]; !ok && agent.Valuations[item.Name] == highestValuation {
-				AgentsWithHighestValuation = append(AgentsWithHighestValuation, agent)
+			envyFreeAgent[agent.Name] = true
+			for _, otherAgent := range agents {
+				if agent != otherAgent && !isEnvyFreeUpToOneItem(agent, otherAgent, allocations) {
+					envyFreeAgent[agent.Name] = false
+					break
+				}
 			}
 		}
 
-		if len(AgentsWithHighestValuation) > 0 {
-			// if there are multiple agents with the same highest valuation, choose the one with the smallest allocation size
-			sort.Slice(AgentsWithHighestValuation, func(i, j int) bool {
-				return len(allocations[AgentsWithHighestValuation[i].Name]) < len(allocations[AgentsWithHighestValuation[j].Name])
-			})
-			chosenAgent := AgentsWithHighestValuation[0]
-			chosenAgent.Allocations[item.Name] = item
-			allocations[chosenAgent.Name] = append(allocations[chosenAgent.Name], item.Name)
-			fmt.Printf("allocate %s to %s\n", item.Name, chosenAgent.Name)
-		}
-	}
+		for _, item := range unallocatedItems {
+			highestValuation := -1
+			var AgentsWithHighestValuation []*model.Agent
 
-	// adjust allocations to maximize fairness
-	iteration := 0
-	maxDifference := 2
-	maxIterations := len(items)
-	for iteration = 0; iteration < maxIterations && maxDifference > 1; iteration++ {
-		// calculate the allocation size for each agent
-		agentSizes := make(map[string]int)
-		for _, agent := range agents {
-			agentSizes[agent.Name] = len(agent.Allocations)
-		}
+			for _, agent := range agents {
+				// Check if agent has already been envy-free for one item
+				if envyFreeAgent[agent.Name] {
+					continue
+				}
 
-		// find the agent with the largest allocation size and the agent with the smallest allocation size
-		var maxAgent, minAgent *model.Agent
-		for _, agent := range agents {
-			if maxAgent == nil || agentSizes[agent.Name] > agentSizes[maxAgent.Name] {
-				maxAgent = agent
-			}
-			if minAgent == nil || agentSizes[agent.Name] < agentSizes[minAgent.Name] {
-				minAgent = agent
-			}
-		}
-
-		// calculate the maximum difference between the allocations of any two agents
-		maxDifference = agentSizes[maxAgent.Name] - agentSizes[minAgent.Name]
-
-		fmt.Println("max_difference: ", maxDifference)
-
-		// EF1
-		if maxDifference > 1 {
-			// reallocate an item from the agent with the largest allocation to the agent with the smallest allocation
-
-			// Find an item in the largest agent's allocation that has the highest value to the smallest agent.
-			var bestItemInMaxAgent *model.Item
-			bestItemInMaxAgentValue := -1
-
-			for _, item := range maxAgent.Allocations {
-				minAgentValuation := minAgent.Valuations[item.Name]
-				if minAgentValuation >= maxAgent.Valuations[item.Name] && minAgentValuation > bestItemInMaxAgentValue {
-					bestItemInMaxAgentValue = minAgent.Valuations[item.Name]
-					bestItemInMaxAgent = item
+				if agent.Valuations[item.Name] > highestValuation {
+					highestValuation = agent.Valuations[item.Name]
+					AgentsWithHighestValuation = []*model.Agent{agent}
+				} else if agent.Valuations[item.Name] == highestValuation {
+					AgentsWithHighestValuation = append(AgentsWithHighestValuation, agent)
 				}
 			}
 
-			if bestItemInMaxAgent == nil {
-				fmt.Println("No items of", maxAgent.Name, minAgent.Name, " prefers.")
-				fmt.Println("Give ", minAgent.Name, " the item that ", maxAgent.Name, " has the last preference for.")
-
-				var lastPrefered *model.Item
-				lastPreferedValue := math.MaxInt
-				for _, item := range maxAgent.Allocations {
-					v := maxAgent.Valuations[item.Name]
-					if v < lastPreferedValue {
-						lastPreferedValue = v
-						lastPrefered = item
-					}
-				}
-
-				delete(maxAgent.Allocations, lastPrefered.Name)
-				minAgent.Allocations[lastPrefered.Name] = lastPrefered
-				allocations[maxAgent.Name] = remove(allocations[maxAgent.Name], lastPrefered.Name)
-				allocations[minAgent.Name] = append(allocations[minAgent.Name], lastPrefered.Name)
-
-				fmt.Printf("swap %s from %s to %s\n", lastPrefered.Name, maxAgent.Name, minAgent.Name)
-
-			} else {
-				delete(maxAgent.Allocations, bestItemInMaxAgent.Name)
-				minAgent.Allocations[bestItemInMaxAgent.Name] = bestItemInMaxAgent
-				allocations[maxAgent.Name] = remove(allocations[maxAgent.Name], bestItemInMaxAgent.Name)
-				allocations[minAgent.Name] = append(allocations[minAgent.Name], bestItemInMaxAgent.Name)
-
-				fmt.Printf("swap %s from %s to %s\n", bestItemInMaxAgent.Name, maxAgent.Name, minAgent.Name)
-
+			if len(AgentsWithHighestValuation) > 0 {
+				chosenAgent := AgentsWithHighestValuation[0]
+				allocations[chosenAgent.Name] = append(allocations[chosenAgent.Name], item.Name)
+				envyFreeAgent[chosenAgent.Name] = true
 			}
+		}
 
+		// Remove allocated items from unallocated items list
+		for agentName, isEnvyFree := range envyFreeAgent {
+			if isEnvyFree {
+				for _, item := range allocations[agentName] {
+					unallocatedItems = removeItem(unallocatedItems, item)
+				}
+			}
 		}
 	}
 
 	// format output
 	output := make(map[string][]string)
 
-	for agent_name, item_name := range allocations {
-		output[agent_name] = item_name
+	for agentName, itemName := range allocations {
+		output[agentName] = itemName
 	}
 
-	if iteration == maxIterations {
-		return output, errors.New(e.COMPROMISE)
-	}
-
-	return output, nil
+	return output
 }
 
-func remove(s []string, elem string) []string {
-	for i, e := range s {
-		if e == elem {
-			return append(s[:i], s[i+1:]...)
+func removeItem(items []*model.Item, itemName string) []*model.Item {
+	for i, item := range items {
+		if item.Name == itemName {
+			return append(items[:i], items[i+1:]...)
 		}
 	}
-	return s
+	return items
+}
+
+func isEnvyFreeUpToOneItem(agent *model.Agent, otherAgent *model.Agent, allocations map[string][]string) bool {
+	totalAgentValuation := 0
+	totalOtherAgentValuation := 0
+	highestValuation := -1
+
+	for _, itemName := range allocations[otherAgent.Name] {
+		totalAgentValuation += agent.Valuations[itemName]
+		totalOtherAgentValuation += otherAgent.Valuations[itemName]
+
+		if otherAgent.Valuations[itemName] > highestValuation {
+			highestValuation = otherAgent.Valuations[itemName]
+		}
+	}
+
+	// Check if agent i envies agent j's allocation after removing the most valuable item
+	return totalAgentValuation >= totalOtherAgentValuation-highestValuation
 }
 
 // you should double check both values returned
@@ -161,7 +116,7 @@ func EF1(goods []string, agent1Name string, valuation1 map[string]int, agent2Nam
 	fmt.Println("agents: ", agents)
 	fmt.Println("items: ", items)
 
-	allocation, err = fairAllocation(agents, items)
+	allocation = ef1(agents, items)
 
 	return
 }

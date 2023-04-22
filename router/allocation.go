@@ -11,9 +11,14 @@ func SetUp() *gin.Engine {
 
 	router.Use(middleware.Cors())
 
-	// saveworld = ef1
+	// Saveworld
 	router.POST("/saveworld", logic.SaveWorld)
-	router.POST("/ef1", logic.SaveWorld)
+
+	// Ef1
+	router.POST("/ef1", logic.EF1)
+
+	// AdjustedWinner
+	router.POST("/adjustedwinner", logic.AdjustedWinner)
 
 	return router
 }

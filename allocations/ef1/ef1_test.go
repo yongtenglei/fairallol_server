@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"testing"
+
+	"rey.com/fairallol/model"
 )
 
 func TestMain(m *testing.M) {
@@ -65,7 +67,7 @@ func TestFairAllocation(t *testing.T) {
 		{9, 12, 19, 20, 22, 24},
 	}
 
-	items := []*Item{
+	items := []*model.Item{
 		{"item1"},
 		{"item2"},
 		{"item3"},
@@ -79,29 +81,25 @@ func TestFairAllocation(t *testing.T) {
 
 		preference1 := make(map[string]int)
 		for k := 0; k < len(items); k++ {
-			preference1[items[k].name] = cases[i][k]
+			preference1[items[k].Name] = cases[i][k]
 		}
 
 		preference2 := make(map[string]int)
 		for k := 0; k < len(items); k++ {
-			preference2[items[k].name] = cases[j][k]
+			preference2[items[k].Name] = cases[j][k]
 		}
 
 		fmt.Println("=======case " + strconv.Itoa(counter) + " ==========")
 		fmt.Println(preference1)
 		fmt.Println(preference2)
 
-		agents := []*Agent{
-			{"Alice", preference1, make(map[string]*Item)},
-			{"Bob", preference2, make(map[string]*Item)},
+		agents := []*model.Agent{
+			{"Alice", preference1, make(map[string]*model.Item)},
+			{"Bob", preference2, make(map[string]*model.Item)},
 		}
-		fairAllocation(agents, items)
-		for _, agent := range agents {
-			fmt.Println(agent.name)
-			for name := range agent.allocations {
-				fmt.Println(name)
-			}
-		}
+
+		allocation := ef1(agents, items)
+		fmt.Println(allocation)
 
 		counter++
 	}
