@@ -6,11 +6,8 @@ import (
 	"rey.com/fairallol/model"
 )
 
-// The code above implements a type of fairness called envy-freeness up to one good (EF1) in its allocation process. An allocation is said to be EF1 if no agent would prefer the bundle of any other agent plus one more item to their own bundle.
-
-// The ef1 function first allocates each item to the agent with the highest valuation for that item, which ensures that the allocation is Pareto optimal (no agent can be made better off without making another agent worse off). It then adjusts the allocation to maximize fairness by reallocating an item from the agent with the largest allocation to the agent with the smallest allocation, if there exists an item that the agent with the smallest allocation values more than the agent with the largest allocation. This process aims to make the allocation envy-free, in that no agent would prefer the bundle of any other agent to their own bundle.
-// Note that the code does not guarantee the existence of an EF1 allocation for all possible inputs, as the problem of finding such an allocation is known to be NP-hard. However, the code provides a heuristic that attempts to find a good allocation in practice.
-// Ensure Pareto optimal but not necessary for min_max
+// TODO:  Under Development
+// The original EF1 algorithm is SaveWorld(EF1)
 func ef1(agents []*model.Agent, items []*model.Item) map[string][]string {
 	allocations := make(map[string][]string) // allocations[agent_name] is a slice of item name allocated to this agent
 	unallocatedItems := make([]*model.Item, len(items))

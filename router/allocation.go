@@ -15,10 +15,16 @@ func SetUp() *gin.Engine {
 	router.POST("/saveworld", logic.SaveWorld)
 
 	// Ef1
-	router.POST("/ef1", logic.EF1)
+	router.POST("/ef1", logic.SaveWorld)
 
 	// AdjustedWinner
 	router.POST("/adjustedwinner", logic.AdjustedWinner)
+
+	// AdjustedWinner
+	router.POST("/dividechoose", logic.DivideAndChoose)
+
+	// RoundRobin
+	router.POST("/roundrobin", logic.RoundRobin)
 
 	return router
 }
